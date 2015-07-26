@@ -1,91 +1,80 @@
-# setwd("./Desktop/Online Coursera/Coursera-Developing-Data-Products/project/")
-
-# Load required libraries
+#####
+# Load required libraries.
+#####
 require(data.table)
-# library(sqldf)
-library(dplyr)
-library(DT)
+# 
+library(sqldf)
+#
 library(rCharts)
+#
+library(dplyr)
+#
+library(DT)
+#
 
-# Read data
+#####
+# Read data from input files.
+#####
 data <- fread("./data/sets.csv")
+#
 head(data)
+#
 setnames(data, "t1", "theme")
 setnames(data, "descr", "name")
 setnames(data, "set_id", "setId")
-# data$miniFigure <- as.numeric(data$theme=="Collectible Minifigures")
+# 
+#####
 # Exploratory data analysis
-sum(is.na(data)) # 0
-length(unique(data$setId)) # 10036
-table(data$year) # 1950 - 2015
-length(table(data$year)) # 64
+#####
+#####0
+sum(is.na(data)) 
+#####10036
+length(unique(data$setId)) 
+#####1950 - 2015
+table(data$year) 
+#####64
+length(table(data$year)) 
 years <- sort(unique(data$year))
-length(table(data$theme)) # 100
+#####100
+length(table(data$theme)) 
 themes <- sort(unique(data$theme))
-# sqldf("SELECT distinct year FROM data") 
 
 
-## Helper functions
 
-#' Aggregate dataset by year
-#' 
-#' @param dt data.table
-#' @param minYear
-#' @param maxYear
-#' @param minPiece
-#' @param maxPiece
-#' @param themes
-#' @return data.table
-#'
+#####
+# Group by year Piece results
+#####
 groupByYearPiece <- function(dt, minYear, maxYear, minPiece,
                              maxPiece, themes) {
+    #
     result <- dt %>% filter(year >= minYear, year <= maxYear,
                             pieces >= minPiece, pieces <= maxPiece,
                             theme %in% themes) 
+    #
     return(result)
 }
 
-#' Aggregate dataset by themes
-#' 
-#' @param dt data.table
-#' @param minYear
-#' @param maxYear
-#' @param minPiece
-#' @param maxPiece
-#' @param themes
-#' @return result data.table
-#' 
+#####
+# Group by theme.
+#####
 groupByTheme <- function(dt, minYear, maxYear, 
                          minPiece, maxPiece, themes) {
-    # use pipelining
-    # print(dim(dt))
+    #
     dt <- groupByYearPiece(dt, minYear, maxYear, minPiece,
                            maxPiece, themes) 
-    # print(dim(result))
+    #
     result <- datatable(dt, options = list(iDisplayLength = 50))
     return(result)
-    # The following does not work
-    #     fn$sqldf("SELECT * FROM data 
-    #          WHERE year >= $minYear and year <= $maxYear
-    #          and theme in $themes")
-
-    #return(data.table(result))
 }
 
-#' Aggregate dataset by year to get total count of themes
-#' 
-#' @param dt data.table
-#' @param minYear
-#' @param maxYear
-#' @param minPiece
-#' @param maxPiece
-#' @param themes
-#' @return data.table 2 columns
-#'
+#####
+# Aggregate by year.
+#####
 groupByYearAgg <- function(dt, minYear, maxYear, minPiece,
                            maxPiece, themes) {
     dt <- groupByYearPiece(dt, minYear, maxYear, minPiece,
                       maxPiece, themes)
+    #
     result <- dt %>% 
             group_by(year)  %>% 
             summarise(count = n()) %>%
@@ -93,21 +82,14 @@ groupByYearAgg <- function(dt, minYear, maxYear, minPiece,
     return(result)
 }
 
-#' Aggregate dataset by year to get total count of average
-#' number of pieces
-#' 
-#' @param dt data.table
-#' @param minYear
-#' @param maxYear
-#' @param minPiece
-#' @param maxPiece
-#' @param themes
-#' @return data.table 2 columns
-#'
+#####
+# Aggregate by grouping by average of  pieces.
+#####
 groupByPieceAvg <- function(dt,  minYear, maxYear, minPiece,
                             maxPiece, themes) {
     dt <- groupByYearPiece(dt, minYear, maxYear, minPiece,
                            maxPiece, themes)
+    #
     result <- dt %>% 
             group_by(year) %>% 
             summarise(avg = mean(pieces)) %>%
@@ -115,34 +97,26 @@ groupByPieceAvg <- function(dt,  minYear, maxYear, minPiece,
     return(result)      
 }
 
-#' Average pieces for each theme
-#' 
-#' @param dt data.table
-#' @param minYear
-#' @param maxYear
-#' @param minPiece
-#' @param maxPiece
-#' @param themes
-#' @return data.table 2 columns
-#'
+##### 
+# Average by Piece Theme pieces.
+#####
 groupByPieceThemeAvg <- function(dt,  minYear, maxYear, minPiece,
                                  maxPiece, themes) {
+    #
     dt <- groupByYearPiece(dt, minYear, maxYear, minPiece,
                            maxPiece, themes)
+    #
     result <- dt %>% 
             group_by(theme) %>%
             summarise(avgPieces = mean(pieces)) %>%
             arrange(theme)
+    #
     return(result)
 }
 
-#' Plot number of themes by year
-#' 
-#' @param dt data.table
-#' @param dom
-#' @param xAxisLabel year
-#' @param yAxisLabel number of themes
-#' @return themesByYear plot
+#####
+# Plot number of themes by year
+#####
 plotThemesCountByYear <- function(dt, dom = "themesByYear", 
                                   xAxisLabel = "Year",
                                   yAxisLabel = "Number of Themes") {
@@ -159,13 +133,10 @@ plotThemesCountByYear <- function(dt, dom = "themesByYear",
     themesByYear
 }
 
-#' Plot number of pieces by year
-#' 
-#' @param dt data.table
-#' @param dom
-#' @param xAxisLabel year
-#' @param yAxisLabel number of pieces
-#' @return plotPiecesByYear plot
+#####
+# ' Plot number of pieces by year.
+#####
+
 plotPiecesByYear <- function(dt, dom = "piecesByYear", 
                              xAxisLabel = "Year", 
                              yAxisLabel = "Number of Pieces") {
@@ -176,6 +147,9 @@ plotPiecesByYear <- function(dt, dom = "piecesByYear",
         type = "scatterChart",
         dom = dom, width = 650
     )
+    #####
+    #
+    #####
     piecesByYear$chart(margin = list(left = 100), 
                        showDistX = TRUE,
                        showDistY = TRUE)
@@ -192,13 +166,9 @@ plotPiecesByYear <- function(dt, dom = "piecesByYear",
     piecesByYear
 }
 
-#' Plot number of average pieces by year
-#' 
-#' @param dt data.table
-#' @param dom
-#' @param xAxisLabel year
-#' @param yAxisLabel number of pieces
-#' @return themesByYear plot
+#####
+# Plot number of average pieces by year
+#####
 plotPiecesByYearAvg <- function(dt, dom = "piecesByYearAvg", 
                              xAxisLabel = "Year",
                              yAxisLabel = "Number of Pieces") {
@@ -217,27 +187,29 @@ plotPiecesByYearAvg <- function(dt, dom = "piecesByYearAvg",
     
 }
 
-#' Plot number of average pieces by theme
-#' 
-#' @param dt data.table
-#' @param dom
-#' @param xAxisLabel theme
-#' @param yAxisLabel number of pieces
-#' @return piecesByThemeAvg plot
+##### 
+#Plot number of average pieces by theme
+#####
 plotPiecesByThemeAvg <- function(dt, dom = "piecesByThemeAvg", 
                                  xAxisLabel = "Themes", 
                                  yAxisLabel = "Number of Pieces") {
+    #
     piecesByThemeAvg <- nPlot(
         avgPieces ~ theme,
         data = dt,
         type = "multiBarChart",
         dom = dom, width = 650
     )
+    #
     piecesByThemeAvg$chart(margin = list(left = 100))
+    #
     piecesByThemeAvg$chart(color = c('pink', 'blue', 'green'))
+    #
     piecesByThemeAvg$yAxis(axisLabel = yAxisLabel, width = 80)
+    #
     piecesByThemeAvg$xAxis(axisLabel = xAxisLabel, width = 200,
                            rotateLabels = -20, height = 200)
+    #
     piecesByThemeAvg
     
 }
