@@ -1,130 +1,127 @@
 library(shiny)
 
-# Plotting 
-library(ggplot2)
-library(rCharts)
-library(ggvis)
+# Load data processing file
+source("data_processing.R")
+themes <- sort(unique(data$theme))
 
-# Data processing libraries
-library(data.table)
-library(reshape2)
-library(dplyr)
-
-# Required by includeMarkdown
-library(markdown)
-
-# It has to loaded to plot ggplot maps on shinyapps.io
-library(mapproj)
-library(maps)
-
-# Load helper functions
-source("helpers.R", local = TRUE)
-
-
-# Load data
-states_map <- map_data("state")
-dt <- fread('data/events.agg.csv') %>% mutate(EVTYPE = tolower(EVTYPE))
-evtypes <- sort(unique(dt$EVTYPE))
-
-
-# Shiny server 
-shinyServer(function(input, output, session) {
+# Shiny server
+shinyServer(
+  function(input, output) {
+#     output$text1 <- renderText({input$text1})
+#     output$text2 <- renderText({input$text2})
+#     output$text3 <- renderText({
+#       input$goButton
+#       isolate(paste(input$text1, input$text2))
+#     })
+    output$setid <- renderText({input$setid})
     
-    # Define and initialize reactive values
+    output$address <- renderText({
+        input$goButtonAdd
+        isolate(paste("http://brickset.com/sets/", 
+                input$setid, sep=""))
+        
+    })
+    
+#     getPage<-function(url) {
+#         return(tags$iframe(src = url, 
+#                            style="width:100%;",  
+#                            frameborder="0", id="iframe", 
+#                            height = "500px"))
+#     }
+    
+    openPage <- function(url) {
+        return(tags$a(href=url, "Click here!", target="_blank"))
+    }
+    
+    output$inc <- renderUI({ 
+        input$goButtonDirect
+        isolate(openPage(paste("http://brickset.com/sets/", 
+                               input$setid, sep="")))
+        ## Can't open iframe below 
+        # Got This request has been blocked; 
+        # the content must be served over HTTPS error msg
+        # Mixed Content: The page at 'https://xiaodan.shinyapps.io/LegoDatasetVisualization/' 
+        # was loaded over HTTPS, but requested an insecure resource 'http://brickset.com/sets/'. 
+        # This request has been blocked; the content must be served over HTTPS.
+        #isolate(getPage(paste("//brickset.com/sets/", 
+        #                       input$setid, sep="")))  
+    })
+    
+    
+    # Initialize reactive values
     values <- reactiveValues()
-    values$evtypes <- evtypes
+    values$themes <- themes
     
     # Create event type checkbox
-    output$evtypeControls <- renderUI({
-        checkboxGroupInput('evtypes', 'Event types', evtypes, selected=values$evtypes)
+    output$themesControl <- renderUI({
+        checkboxGroupInput('themes', 'LEGO Themes:', 
+                           themes, selected = values$themes)
     })
     
-    # Add observers on clear and select all buttons
+    # Add observer on select-all button
     observe({
-        if(input$clear_all == 0) return()
-        values$evtypes <- c()
+        if(input$selectAll == 0) return()
+        values$themes <- themes
     })
     
+    # Add observer on clear-all button
     observe({
-        if(input$select_all == 0) return()
-        values$evtypes <- evtypes
+        if(input$clearAll == 0) return()
+        values$themes <- c() # empty list
     })
 
-    # Preapre datasets
-    
-    # Prepare dataset for maps
-    dt.agg <- reactive({
-        aggregate_by_state(dt, input$range[1], input$range[2], input$evtypes)
-    })
-    
-    # Prepare dataset for time series
-    dt.agg.year <- reactive({
-        aggregate_by_year(dt, input$range[1], input$range[2], input$evtypes)
-    })
-    
-    # Prepare dataset for downloads
+    # Prepare dataset
     dataTable <- reactive({
-        prepare_downolads(dt.agg())
+        groupByTheme(data, input$timeline[1], 
+                     input$timeline[2], input$pieces[1],
+                     input$pieces[2], input$themes)
+    })
+
+    dataTableByYear <- reactive({
+        groupByYearAgg(data, input$timeline[1], 
+                    input$timeline[2], input$pieces[1],
+                    input$pieces[2], input$themes)
+    })
+
+    dataTableByPiece <- reactive({
+        groupByYearPiece(data, input$timeline[1], 
+                       input$timeline[2], input$pieces[1],
+                       input$pieces[2], input$themes)
+    })
+
+    dataTableByPieceAvg <- reactive({
+        groupByPieceAvg(data, input$timeline[1], 
+                        input$timeline[2], input$pieces[1],
+                        input$pieces[2], input$themes)
+    })
+
+    dataTableByPieceThemeAvg <- reactive({
+        groupByPieceThemeAvg(data, input$timeline[1], 
+                             input$timeline[2], input$pieces[1],
+                             input$pieces[2], input$themes)
     })
     
-    # Render Plots
-    
-    # Population impact by state
-    output$populationImpactByState <- renderPlot({
-        print(plot_impact_by_state (
-            dt = compute_affected(dt.agg(), input$populationCategory),
-            states_map = states_map, 
-            year_min = input$range[1],
-            year_max = input$range[2],
-            title = "Population impact %d - %d (number of affected)",
-            fill = "Affected"
-        ))
-    })
-    
-    # Economic impact by state
-    output$economicImpactByState <- renderPlot({
-        print(plot_impact_by_state(
-            dt = compute_damages(dt.agg(), input$economicCategory),
-            states_map = states_map, 
-            year_min = input$range[1],
-            year_max = input$range[2],
-            title = "Economic impact %d - %d (Million USD)",
-            fill = "Damages"
-        ))
-    })
-    
-    # Events by year
-    output$eventsByYear <- renderChart({
-       plot_events_by_year(dt.agg.year())
-    })
-    
-    # Population impact by year
-    output$populationImpact <- renderChart({
-        plot_impact_by_year(
-            dt = dt.agg.year() %>% select(Year, Injuries, Fatalities),
-            dom = "populationImpact",
-            yAxisLabel = "Affected",
-            desc = TRUE
-        )
-    })
-    
-    # Economic impact by state
-    output$economicImpact <- renderChart({
-        plot_impact_by_year(
-            dt = dt.agg.year() %>% select(Year, Crops, Property),
-            dom = "economicImpact",
-            yAxisLabel = "Total damage (Million USD)"
-        )
-    })
-    
-    # Render data table and create download handler
-    output$table <- renderDataTable(
-        {dataTable()}, options = list(bFilter = FALSE, iDisplayLength = 50))
-    
-    output$downloadData <- downloadHandler(
-        filename = 'data.csv',
-        content = function(file) {
-            write.csv(dataTable(), file, row.names=FALSE)
-        }
+    # Render data table
+    output$dTable <- renderDataTable({
+        dataTable()
+    } #, options = list(bFilter = FALSE, iDisplayLength = 50)
     )
-})
+    
+    output$themesByYear <- renderChart({
+        plotThemesCountByYear(dataTableByYear())
+    })
+
+    output$piecesByYear <- renderChart({
+        plotPiecesByYear(dataTableByPiece())
+    })
+
+    output$piecesByYearAvg <- renderChart({
+        plotPiecesByYearAvg(dataTableByPieceAvg())
+    })
+
+    output$piecesByThemeAvg <- renderChart({
+        plotPiecesByThemeAvg(dataTableByPieceThemeAvg())
+    })
+    
+  } # end of function(input, output)
+)
