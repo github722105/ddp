@@ -15,7 +15,7 @@ library(DT)
 #####
 # Read data from input files.
 #####
-data <- fread("./data/sets.csv")
+data <- fread("./sets.csv")
 #
 head(data)
 #
