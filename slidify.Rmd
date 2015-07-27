@@ -1,9 +1,10 @@
 # I am running out fo time to create Slidify presentation slides.
 
-## Link to my data:
-### https://raw.githubusercontent.com/github722105/ddp/master/sets.csv
 
 ## Here is the link to Slidify so I can create the presentation slides.
 ## http://slidify.org/start.html#
 
 ## Sample is http://slidify.org/samples/deck.js/#slide-1
+
+## Link to sample data:
+### https://raw.githubusercontent.com/github722105/ddp/master/sets.csv
